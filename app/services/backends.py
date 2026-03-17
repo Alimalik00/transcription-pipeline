@@ -37,45 +37,32 @@ class TranscriptionBackend(ABC):
 
 
 class WhisperBackend(TranscriptionBackend):
-    """
-    Uses openai-whisper (local, no API key needed).
-    Install with: pip install openai-whisper
-    """
-
     def __init__(self, model_size: str = "base"):
-        # Model is loaded once and reused across requests.
-        # Loading is slow (a few seconds) so we do it at startup, not per request.
-        import whisper
+        from faster_whisper import WhisperModel
         logger.info("Loading Whisper model: %s", model_size)
-        self._model = whisper.load_model(model_size)
+        self._model = WhisperModel(model_size, device="cpu", compute_type="int8")
         self._model_size = model_size
 
     @property
     def name(self) -> str:
-        return f"whisper-{self._model_size}"
+        return f"faster-whisper-{self._model_size}"
 
     def transcribe(self, wav_path: Path) -> dict:
-        logger.info("Transcribing with Whisper: %s", wav_path.name)
-
-        # verbose=False keeps whisper quiet so our own logs stay clean
-        result = self._model.transcribe(str(wav_path), verbose=False)
-
+        logger.info("Transcribing: %s", wav_path.name)
+        segments_raw, info = self._model.transcribe(str(wav_path))
         segments = []
-        for seg in result.get("segments", []):
+        for i, seg in enumerate(segments_raw):
             segments.append({
-                "id": seg["id"],
-                "start": round(seg["start"], 3),
-                "end": round(seg["end"], 3),
-                "text": seg["text"].strip(),
-                # Whisper does not expose per-segment confidence directly
+                "id": i,
+                "start": round(seg.start, 3),
+                "end": round(seg.end, 3),
+                "text": seg.text.strip(),
                 "confidence": None,
             })
-
         return {
             "segments": segments,
-            "language": result.get("language", "unknown"),
+            "language": info.language,
         }
-
 
 class MockBackend(TranscriptionBackend):
     """
