@@ -4,11 +4,9 @@ uvicorn[standard]==0.30.1
 
 # Transcription engine (local, no API key needed)
 openai-whisper==20231117
-
+setuptools
 # Audio format handling and chunking
 pydub==0.25.1
-
-setuptools
 
 # Data validation
 pydantic==2.7.1
